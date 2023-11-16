@@ -1,4 +1,4 @@
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::result::Result::Ok;
 use std::str::{self, FromStr};
 
@@ -6,6 +6,7 @@ pub enum BenValue {
     BenString(String),
     BenInteger(i64),
     BenList(Vec<BenValue>),
+    BenDict(Map<String, Value>),
 }
 
 pub fn decode_bencoded_values(encoded_values: &[u8]) -> Value {
@@ -18,7 +19,7 @@ pub fn decode_bencoded_values(encoded_values: &[u8]) -> Value {
         index += new_index;
     }
 
-    to_json(&values)
+    to_json(values)
 }
 
 fn decode_bencoded(encoded_values: &[u8], index: usize) -> Result<(BenValue, usize), &'static str> {
@@ -28,23 +29,35 @@ fn decode_bencoded(encoded_values: &[u8], index: usize) -> Result<(BenValue, usi
         decode_integer(&encoded_values[index..])
     } else if encoded_values[index] == b'l' {
         decode_list(&encoded_values[index..])
+    } else if encoded_values[index] == b'd' {
+        decode_map(&encoded_values[index..])
     } else {
         Err("Invalid format: expected a digit, 'i', 'l', or 'd'")
     }
 }
 
-fn to_json(values: &[BenValue]) -> Value {
+fn to_json(values: Vec<BenValue>) -> Value {
     let mut json_values = Vec::new();
 
     for value in values {
         match value {
             BenValue::BenString(string) => json_values.push(Value::String(string.to_string())),
-            BenValue::BenInteger(integer) => json_values.push(Value::Number((*integer).into())),
+            BenValue::BenInteger(integer) => json_values.push(Value::Number((integer).into())),
             BenValue::BenList(list) => json_values.push(to_json(list)),
+            BenValue::BenDict(map) => json_values.push(Value::Object(map)),
         }
     }
 
     Value::Array(json_values)
+}
+
+fn to_json_value(value: BenValue) -> Value {
+    match value {
+        BenValue::BenString(string) => Value::String(string.to_string()),
+        BenValue::BenInteger(integer) => Value::Number((integer).into()),
+        BenValue::BenList(list) => to_json(list),
+        BenValue::BenDict(map) => Value::Object(map),
+    }
 }
 
 fn decode_string(encoded_values: &[u8]) -> Result<(BenValue, usize), &'static str> {
@@ -97,7 +110,7 @@ fn decode_integer(encoded_values: &[u8]) -> Result<(BenValue, usize), &'static s
 
 fn decode_list(encoded_values: &[u8]) -> Result<(BenValue, usize), &'static str> {
     let mut values: Vec<BenValue> = Vec::new();
-    let mut current_index: usize = 1;
+    let mut current_index: usize = 1; // 1 to remove l
 
     if encoded_values[current_index] == b'e' {
         return Ok((BenValue::BenList(values), current_index + 1));
@@ -122,4 +135,35 @@ fn decode_list(encoded_values: &[u8]) -> Result<(BenValue, usize), &'static str>
     }
 
     Ok((BenValue::BenList(values), current_index + 1))
+}
+
+fn decode_map(encoded_values: &[u8]) -> Result<(BenValue, usize), &'static str> {
+    let mut result_map: Map<String, Value> = Map::new();
+    let mut current_index: usize = 1; // 1 to remove d
+
+    if encoded_values[current_index] == b'e' {
+        return Ok((BenValue::BenDict(result_map), current_index + 1));
+    }
+
+    loop {
+        let (key, size): (BenValue, usize) =
+            decode_string(&encoded_values[current_index..]).unwrap();
+        current_index += size;
+        let (value, size): (BenValue, usize) =
+            decode_bencoded(&encoded_values, current_index).unwrap();
+        current_index += size;
+
+        match key {
+            BenValue::BenString(string) => {
+                result_map.insert(string, to_json_value(value)); 
+            }
+            _ => panic!("Invalid key type"),
+        }
+
+        if encoded_values[current_index] == b'e' {
+            break;
+        }
+    }
+
+    Ok((BenValue::BenDict(result_map), current_index + 1))
 }

@@ -1,4 +1,4 @@
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 use std::result::Result::Ok;
 use std::str::{self, FromStr};
 
@@ -20,20 +20,6 @@ pub fn decode_bencoded_values(encoded_values: &[u8]) -> Value {
     }
 
     to_json(values)
-}
-
-pub fn decode_bencoded_file(encoded_values: &[u8]) -> String {
-    let mut values = Vec::new();
-    let mut index = 0;
-
-    while index < encoded_values.len() {
-        let (value, new_index) = decode_bencoded(encoded_values, index).unwrap();
-        values.push(value);
-        index += new_index;
-    }
-    
-    // to json returns an array take first and to string
-    to_json(values).as_array().unwrap()[0].to_string()
 }
 
 fn decode_bencoded(encoded_values: &[u8], index: usize) -> Result<(BenValue, usize), &'static str> {

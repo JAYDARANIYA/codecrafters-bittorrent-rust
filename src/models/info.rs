@@ -1,5 +1,10 @@
 use serde::Deserialize;
 use serde::Serialize;
+use serde_bytes::ByteBuf;
+
+extern crate sha1;
+
+use sha1::{Digest, Sha1};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -11,14 +16,13 @@ pub struct MetaInfo {
 }
 
 impl MetaInfo {
-    pub fn from_string(s: &str) -> Option<MetaInfo> {
-        match serde_json::from_str::<MetaInfo>(s) {
-            Ok(m) => Some(m),
-            Err(e) => {
-                println!("Error parsing: {}",e);
-                None
-            },
-        }
+    pub fn info_hash(&self) -> String {
+        let serialized = serde_bencode::ser::to_bytes(&self.info).unwrap();
+        let mut hasher = Sha1::new();
+        hasher.update(&serialized);
+        let result = hasher.finalize();
+
+        format!("{:x}", result)
     }
 }
 
@@ -28,6 +32,6 @@ pub struct Info {
     pub length: i64,
     pub name: String,
     #[serde(rename = "piece length")]
-    pub piece_length: i64,
-    pub pieces: String,
+    pub piece_length: u64,
+    pub pieces: ByteBuf,
 }

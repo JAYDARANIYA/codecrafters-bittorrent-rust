@@ -1,9 +1,11 @@
 use serde_json::Value;
+use std::result::Result::Ok;
 use std::str::{self, FromStr};
 
 pub enum BenValue {
     BenString(String),
     BenInteger(i64),
+    BenList(Vec<BenValue>),
 }
 
 pub fn decode_bencoded_values(encoded_values: &[u8]) -> Value {
@@ -11,30 +13,38 @@ pub fn decode_bencoded_values(encoded_values: &[u8]) -> Value {
     let mut index = 0;
 
     while index < encoded_values.len() {
-        if encoded_values[index].is_ascii_digit() {
-            let (decoded, next_index) =
-                decode_string(&encoded_values[index..]).expect("Failed to decode string");
-            values.push(decoded);
-            index += next_index;
-        } else if encoded_values[index] == b'i' {
-            let (decoded, next_index) =
-                decode_integer(&encoded_values[index..]).expect("Failed to decode integer");
-            values.push(decoded);
-            index += next_index;
-        } else {
-            panic!("Invalid format: expected a digit, 'i', 'l', or 'd'");
+        let (value, new_index) = decode_bencoded(encoded_values, index).unwrap();
+        values.push(value);
+        index += new_index;
+    }
+
+    to_json(&values)
+}
+
+fn decode_bencoded(encoded_values: &[u8], index: usize) -> Result<(BenValue, usize), &'static str> {
+    if encoded_values[index].is_ascii_digit() {
+        decode_string(&encoded_values[index..])
+    } else if encoded_values[index] == b'i' {
+        decode_integer(&encoded_values[index..])
+    } else if encoded_values[index] == b'l' {
+        decode_list(&encoded_values[index..])
+    } else {
+        Err("Invalid format: expected a digit, 'i', 'l', or 'd'")
+    }
+}
+
+fn to_json(values: &[BenValue]) -> Value {
+    let mut json_values = Vec::new();
+
+    for value in values {
+        match value {
+            BenValue::BenString(string) => json_values.push(Value::String(string.to_string())),
+            BenValue::BenInteger(integer) => json_values.push(Value::Number((*integer).into())),
+            BenValue::BenList(list) => json_values.push(to_json(list)),
         }
     }
 
-    Value::Array(
-        values
-            .into_iter()
-            .map(|v| match v {
-                BenValue::BenString(s) => Value::String(s),
-                BenValue::BenInteger(i) => Value::Number(i.into()),
-            })
-            .collect(),
-    )
+    Value::Array(json_values)
 }
 
 fn decode_string(encoded_values: &[u8]) -> Result<(BenValue, usize), &'static str> {
@@ -58,11 +68,6 @@ fn decode_string(encoded_values: &[u8]) -> Result<(BenValue, usize), &'static st
                 .map_err(|_| "Invalid UTF-8 string")?;
             return Ok((BenValue::BenString(string.to_string()), string_end));
         } else {
-            // print the whole string
-            println!("length_str: {}", length_str);
-            println!("b: {}", b as char);
-            println!("index: {}", index);
-            println!("encoded_values: {:?}", String::from_utf8(encoded_values.to_vec()).unwrap());
             return Err("Invalid format");
         }
     }
@@ -88,4 +93,33 @@ fn decode_integer(encoded_values: &[u8]) -> Result<(BenValue, usize), &'static s
     }
 
     Err("Invalid format")
+}
+
+fn decode_list(encoded_values: &[u8]) -> Result<(BenValue, usize), &'static str> {
+    let mut values: Vec<BenValue> = Vec::new();
+    let mut current_index: usize = 1;
+
+    if encoded_values[current_index] == b'e' {
+        return Ok((BenValue::BenList(values), current_index + 1));
+    }
+
+    loop {
+        let decoded = decode_bencoded(&encoded_values, current_index);
+
+        if decoded.is_err() {
+            let err = &decoded.err();
+            panic!("Error parsing list: {}", err.unwrap());
+        } else {
+            let (value, size) = decoded.unwrap();
+
+            values.push(value);
+            current_index += size;
+        }
+
+        if encoded_values[current_index] == b'e' {
+            break;
+        }
+    }
+
+    Ok((BenValue::BenList(values), current_index + 1))
 }

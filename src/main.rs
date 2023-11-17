@@ -24,6 +24,16 @@ fn main() {
         println!("Tracker URL: {}", meta_info.announce);
         println!("Length: {}", meta_info.info.length);
         println!("Info Hash: {}",meta_info.info_hash());
+        println!("Piece Length: {}", meta_info.info.piece_length);
+        println!("Piece Hashes: ");
+
+        for chunk in meta_info.info.pieces.chunks(20) {
+            for x in chunk {
+                print!("{:02x}",x);
+            }
+            println!("");
+        }
+
     } else {
         println!("unknown command: {}", args[1])
     }

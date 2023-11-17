@@ -10,8 +10,6 @@ use sha1::{Digest, Sha1};
 #[serde(rename_all = "camelCase")]
 pub struct MetaInfo {
     pub announce: String,
-    #[serde(rename = "created by")]
-    pub created_by: String,
     pub info: Info,
 }
 

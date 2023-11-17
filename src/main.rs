@@ -2,7 +2,7 @@ mod bencode_decode;
 mod models;
 use std::env;
 
-use models::tracker::TrackerRequest;
+use models::{handshake::HandShake, tracker::TrackerRequest};
 
 use crate::{bencode_decode::decode_bencoded_values, models::info::MetaInfo};
 
@@ -50,6 +50,21 @@ fn main() {
         for peer in peers {
             println!("{}:{}", peer.ip, peer.port);
         }
+    } else if command == "handshake" {
+        let meta_info = MetaInfo::from_file(&args[2]);
+
+        let addr_port = &args[3].split(":").collect::<Vec<&str>>();
+
+        let handshake = HandShake::new(
+            &meta_info.info_hash(),
+            addr_port[0],
+            addr_port[1].parse::<u16>().unwrap(),
+            "00112233445566778899",
+        );
+
+        let peer_id = handshake.perform_handshake();
+
+        println!("Peer ID: {}", hex::encode(peer_id));
     } else {
         println!("unknown command: {}", args[1])
     }

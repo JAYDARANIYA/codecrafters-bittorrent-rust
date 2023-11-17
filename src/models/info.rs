@@ -1,3 +1,6 @@
+use std::fs;
+use std::path::Path;
+
 use serde::Deserialize;
 use serde::Serialize;
 use serde_bytes::ByteBuf;
@@ -14,13 +17,29 @@ pub struct MetaInfo {
 }
 
 impl MetaInfo {
-    pub fn info_hash(&self) -> String {
+
+    pub fn info_hash(&self) -> Vec<u8> {
+        let serialized = serde_bencode::ser::to_bytes(&self.info).unwrap();
+        let mut hasher = Sha1::new();
+        hasher.update(&serialized);
+        let result = hasher.finalize();
+
+        result.to_vec()
+    }
+
+
+    pub fn info_hash_str(&self) -> String {
         let serialized = serde_bencode::ser::to_bytes(&self.info).unwrap();
         let mut hasher = Sha1::new();
         hasher.update(&serialized);
         let result = hasher.finalize();
 
         format!("{:x}", result)
+    }
+
+    pub fn from_file(path: &str) -> MetaInfo {
+        let bytes = fs::read(Path::new(path)).expect("No file found");
+        serde_bencode::from_bytes::<MetaInfo>(&bytes).expect("Error decoding file")
     }
 }
 

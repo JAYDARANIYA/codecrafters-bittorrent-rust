@@ -17,7 +17,6 @@ pub struct MetaInfo {
 }
 
 impl MetaInfo {
-
     pub fn info_hash(&self) -> Vec<u8> {
         let serialized = serde_bencode::ser::to_bytes(&self.info).unwrap();
         let mut hasher = Sha1::new();
@@ -26,7 +25,6 @@ impl MetaInfo {
 
         result.to_vec()
     }
-
 
     pub fn info_hash_str(&self) -> String {
         let serialized = serde_bencode::ser::to_bytes(&self.info).unwrap();

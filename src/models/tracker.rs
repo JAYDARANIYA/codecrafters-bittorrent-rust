@@ -2,10 +2,7 @@ use std::fmt::Write;
 
 use reqwest::blocking::Client;
 
-pub struct Peer {
-    pub ip: String,
-    pub port: u16,
-}
+use super::peers::Peer;
 
 pub struct TrackerRequest {
     url: String,
@@ -72,15 +69,13 @@ impl TrackerRequest {
                 let peers = dict.get("peers".as_bytes()).expect("No peers found");
 
                 match peers {
-                    serde_bencode::value::Value::Bytes(b) => {
-
-                        b.chunks_exact(6)
-                            .map(|chunk| Peer {
-                                ip: format!("{}.{}.{}.{}", chunk[0], chunk[1], chunk[2], chunk[3]),
-                                port: u16::from_be_bytes([chunk[4], chunk[5]]),
-                            })
-                            .collect()
-                    }
+                    serde_bencode::value::Value::Bytes(b) => b
+                        .chunks_exact(6)
+                        .map(|chunk| Peer {
+                            ip: format!("{}.{}.{}.{}", chunk[0], chunk[1], chunk[2], chunk[3]),
+                            port: u16::from_be_bytes([chunk[4], chunk[5]]),
+                        })
+                        .collect(),
                     _ => panic!("Expected dict"),
                 }
             }

@@ -99,13 +99,42 @@ fn main() -> Result<(), Error> {
                 "00112233445566778899",
             );
 
-            handshake.perform_handshake();
-
-            let file_chunks = handshake.download_piece(piece_index as usize, meta_info);
+            let file_chunks = handshake.download_piece(piece_index as usize, &meta_info);
 
             std::fs::write(&out, file_chunks).expect("Unable to write file");
 
             println!("Piece {} downloaded to {}", piece_index, out);
+        }
+
+        Commands::Download { out, path } => {
+            let meta_info = MetaInfo::from_file(&path);
+
+            let tracker_request = TrackerRequest::new(
+                &meta_info.announce,
+                &meta_info.info_hash(),
+                "00112233445566778899".to_string(),
+                6881,
+                0,
+                0,
+                meta_info.info.length.to_string().as_str(),
+            );
+
+            let peers = tracker_request.get_peers();
+
+            let peer = &peers[1];
+
+            let mut handshake = HandShake::new(
+                &meta_info.info_hash(),
+                &peer.ip.as_str(),
+                peer.port,
+                "00112233445566778899",
+            );
+
+            let file_chunks = handshake.download_all_pieces(meta_info);
+
+            std::fs::write(&out, file_chunks).expect("Unable to write file");
+
+            println!("Downloaded {} to {}", path, out);
         }
     }
 

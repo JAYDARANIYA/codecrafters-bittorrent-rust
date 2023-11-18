@@ -61,7 +61,11 @@ impl HandShake {
         response[response.len() - 20..].to_vec()
     }
 
-    pub fn download_piece(&mut self, piece_index: usize, meta_info: MetaInfo) -> Vec<u8> {
+    pub fn download_piece(&mut self, piece_index: usize, meta_info: &MetaInfo) -> Vec<u8> {
+        if self.socket.is_none() {
+            self.perform_handshake();
+        }
+
         let mut stream = match &mut self.socket {
             Some(stream) => stream,
             None => panic!("No socket"),
@@ -134,6 +138,24 @@ impl HandShake {
             }
         }
 
+        _ = match &mut self.socket {
+            Some(stream) => stream.shutdown(std::net::Shutdown::Both),
+            None => panic!("No socket"),
+        };
+
+        self.socket = None;
+
         chunks
+    }
+
+    pub fn download_all_pieces(&mut self, meta_info: MetaInfo) -> Vec<u8> {
+        let mut pieces: Vec<u8> = Vec::new();
+
+        for i in 0..meta_info.info.pieces.len() / 20 {
+            let mut piece = self.download_piece(i, &meta_info);
+            pieces.append(&mut piece);
+        }
+
+        pieces
     }
 }

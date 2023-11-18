@@ -28,4 +28,9 @@ pub enum Commands {
         path: String,
         piece_index: u32,
     },
+    Download {
+        #[arg(short, long, value_name = "FILE-PATH")]
+        out: String,
+        path: String,
+    },
 }
